@@ -207,7 +207,9 @@ class ExcelController extends Controller
                 unset($df_rutas[$key]['ContratoSAP']);
             }
 
-            return $this->tranciti_register_route($df_rutas);
+            $this->tranciti_register_route($df_rutas);
+
+            return view('welcome-sugal')->with('status', 'Rutas cargadas con exito en tranciti!');
 
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
