@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'tranciti' => [
+        'base_url' => env('TRANCITI_API_BASE_URL', 'https://api.waypoint.cl/lastmile/api/'),
+        'token' => env('TRANCITI_API_TOKEN', ''),
+        'username' => env('TRANCITI_USERNAME', ''),
+        'password' => env('TRANCITI_PASSWORD', ''),
+    ],
+
 ];

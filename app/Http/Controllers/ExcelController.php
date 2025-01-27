@@ -7,10 +7,13 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use DateTime;
-
+use Illuminate\Support\Facades\Http;
+use App\Models\Ubicacion;
 
 class ExcelController extends Controller
 {
+    public $ubicaciones = NULL;
+
     public function index()
     {
         return view('index');
@@ -46,13 +49,13 @@ class ExcelController extends Controller
 
                 return $assocRow;
             })->filter(function ($row) {
-                // Filtrar filas según columnas requeridas
                 return $row['Parcela'] && $row['Proveedor de servicios de cosecha'] && $row['Fábrica'];
             });
 
-            // Crear DataFrame Formateado
             $df_program_format = collect();
             $j = 0;
+
+
 
             foreach ($df_program as $row) {
                 for ($k = 0; $k < $row['Asignar cupo']; $k++) {
@@ -63,6 +66,8 @@ class ExcelController extends Controller
                     $df_program_format->push($newRow);
                 }
             }
+
+            //dd($df_program, $df_program_format);
 
             $df_program_format = $df_program_format->map(function ($row) {
                 $row['Asignar cupo'] = 1;
@@ -96,19 +101,25 @@ class ExcelController extends Controller
                 // Actualizar la última hora registrada para la parcela
                 $parcelaHorarios[$parcela]['last_time'] = $horaInicio;
 
-                // Construir la fila con la nueva lógica
+                $startTime = DateTime::createFromFormat('d-m-Y', $row['Fecha']);
+                $startTime->modify($horaInicio);
+                $startTime = $startTime->getTimestamp();
+
+                $transportista = $this->tranciti_validate_spot_transportista($row['Prestador servicio de Transporte']);
+
                 return [
-                    'ID' => $row['ID'],
-                    'NCupo' => $row['NCupo'],
-                    'Nombre de ruta' => "{$row['Prestador servicio de Transporte']}-{$row['Maquina cosechadora']}-{$row['Fábrica']}-{$row['NCupo']}",
-                    'Base de origen' => $row['Prestador servicio de Transporte'],
-                    'Fecha de inicio (YYYY-MM-DD)' => DateTime::createFromFormat('d-m-Y', $row['Fecha'])->format('Y-m-d'),
-                    'Hora de inicio (HH:MM)' => $horaInicio, // Hora calculada
-                    'Tiempo de carga (minutos)' => 60,
-                    'Tiempo de descarga (minutos)' => 10,
-                    'Agricultor' => $row['Agricultor'],
-                    'ContratoSAP' => $row['Contrato SAP'],
-                    'Parcela' => $row['Parcela']
+                    "ContratoSAP" => $row['Contrato SAP'],
+                    "name" => "{$row['Prestador servicio de Transporte']}-{$row['Maquina cosechadora']}-{$row['Fábrica']}-{$row['NCupo']}",
+                    "loadTime" => 60*60,
+                    "unloadTime" => 10*60,
+
+                    "origin" => [
+                        "name" => $transportista['name'],
+                        "id" => $transportista['id'],
+                    ],
+
+                    "startDate" => $startTime * 1000
+
                 ];
             })->toArray();
 
@@ -116,177 +127,222 @@ class ExcelController extends Controller
 
             $i = 0;
 
-            foreach ($df_rutas as $row) {
+            foreach ($df_rutas as $key => $row) {
                 $i++;
-                // Determinar el destino según la condición
-                if ($row['Agricultor'] === 'SUGAL CHILE LIMITADA') {
-                    $destino = "{$row['ContratoSAP']}-{$row['Parcela']}-{$row['Agricultor']}";
-                } else {
-                    $destino = "{$row['ContratoSAP']}-{$row['Agricultor']}-{$row['Parcela']}";
-                }
+                $destino =  $this->tranciti_validate_spot($row['ContratoSAP']);
 
-                $df_viajes->push([
-                    'Nombre de ruta' => $row['Nombre de ruta'],
-                    'Número de viaje' => $i,
-                    'Destino' => $destino,
-                    'Tiempo de trayecto (mins)' => '',
-                    'Conductor' => '',
-                    'Vehículo' => '',
-                    'Dirección' => '',
-                    'Ciudad' => '',
-                    'Estado' => '',
-                    'País' => '',
-                    'Dirección destino' => '',
-                ]);
+                $df_rutas[$key]['trips'] =
+                [
+                [
+                     "name"=> $destino['name'],
+                     "destination"=> [
+                        "id"=> $destino['id'],
+                        "name"=> $destino['name'],
+                    ],
+                    /* "setOperatorDirect"=> [
+                        "idDriver"=> 0,
+                        "idVehicle"=> 0,
+                        "idOperator"=> 0,
+                        "idCargo"=> 0
+                    ], */
+                    "activities" => [
+                        [
+                            "name" => "Llegada a Parcela",
+                            "type" => "VISIT",
+                            "description" => "Marcar cuando camión ha llegado a parcela.",
+                            "volume" => 0,
+                            "weight" => 0,
+                            "duration" => 120*60,
+                            "customerName" => NULL,
+                            "customerLegalNumber" => NULL,
+                            "customerPhone" => NULL,
+                            "customerEmail" => NULL,
+                            "documents" => [],
+                        ],
+                        [
+                            "type" => "COLLECTION",
+                            "name" => "Camión Cargado",
+                            "description" => "Camión ya esta con carga y se prepara para salir de parcela",
+                            "volume" => 0,
+                            "weight" => 0,
+                            "duration" => 60*60,
+                            "customerName" => NULL,
+                            "customerLegalNumber" => NULL,
+                            "customerPhone" => NULL,
+                            "customerEmail" => NULL,
+                            "documents" => [],
+                        ],
+                        [
+                            "type" => "DELIVERY",
+                            "name" => "Traslado a Planta",
+                            "description" => "Camión ha salido de parcela y esta en transito a Planta",
+                            "volume" => 0,
+                            "weight" => 0,
+                            "duration" => 120*60,
+                            "customerName" => NULL,
+                            "customerLegalNumber" => NULL,
+                            "customerPhone" => NULL,
+                            "customerEmail" => NULL,
+                            "documents" => [],
+                        ],
+                        [
+                            "type" => "DELIVERY",
+                            "name" => "Camión Descargado",
+                            "description" => "Camión fue descargado en Planta",
+                            "volume" => 0,
+                            "weight" => 0,
+                            "duration" => 60*60,
+                            "customerName" => NULL,
+                            "customerLegalNumber" => NULL,
+                            "customerPhone" => NULL,
+                            "customerEmail" => NULL,
+                            "documents" => [],
+                        ],
+                    ]
+                ]
+                    ];
             }
 
-            $df_actividades = collect();
-            $actividades_columns = ['Número de viaje', 'Nombre de actividad', 'Número de actividad', 'Tipo de actividad', 'Duración (mins)','Volumen (m3)','Peso (kg)','Atributo','Nombre contacto','DNI de contacto','Télefono contacto','Email contacto'];
-            $z = 0;
-
-            foreach ($df_viajes as $index => $row) {
-                if (($index + 1) % 2 == 0) {
-                    // Traslado a Planta
-                    $z++;
-                    $df_actividades->push([
-                        'Número de viaje' => $row['Número de viaje'],
-                        'Nombre de actividad' => 'Traslado a Planta',
-                        'Número de actividad' => $z,
-                        'Tipo de actividad' => 'ENTREGA',
-                        'Duración (mins)' => 120,
-                        'Volumen (m3)' => '',
-                        'Peso (kg)' => '',
-                        'Atributo' => '',
-                        'Nombre contacto' => '',
-                        'DNI de contacto' => '',
-                        'Télefono contacto' => '',
-                        'Email contacto' => '',
-                    ]);
-
-                    // Camión Descargado
-                    $z++;
-                    $df_actividades->push([
-                        'Número de viaje' => $row['Número de viaje'],
-                        'Nombre de actividad' => 'Camión Descargado',
-                        'Número de actividad' => $z,
-                        'Tipo de actividad' => 'ENTREGA',
-                        'Duración (mins)' => 60,
-                        'Volumen (m3)' => '',
-                        'Peso (kg)' => '',
-                        'Atributo' => '',
-                        'Nombre contacto' => '',
-                        'DNI de contacto' => '',
-                        'Télefono contacto' => '',
-                        'Email contacto' => '',
-                    ]);
-                } else {
-                    // Llegada a Parcela
-                    $z++;
-                    $df_actividades->push([
-                        'Número de viaje' => $row['Número de viaje'],
-                        'Nombre de actividad' => 'Llegada a Parcela',
-                        'Número de actividad' => $z,
-                        'Tipo de actividad' => 'RECOGIDA',
-                        'Duración (mins)' => 120,
-                        'Volumen (m3)' => '',
-                        'Peso (kg)' => '',
-                        'Atributo' => '',
-                        'Nombre contacto' => '',
-                        'DNI de contacto' => '',
-                        'Télefono contacto' => '',
-                        'Email contacto' => '',
-                    ]);
-
-                    // Camión Cargado
-                    $z++;
-                    $df_actividades->push([
-                        'Número de viaje' => $row['Número de viaje'],
-                        'Nombre de actividad' => 'Camión Cargado',
-                        'Número de actividad' => $z,
-                        'Tipo de actividad' => 'RECOGIDA',
-                        'Duración (mins)' => 60,
-                        'Volumen (m3)' => '',
-                        'Peso (kg)' => '',
-                        'Atributo' => '',
-                        'Nombre contacto' => '',
-                        'DNI de contacto' => '',
-                        'Télefono contacto' => '',
-                        'Email contacto' => '',
-                    ]);
-                }
+            foreach ($df_rutas as $key => $item) {
+                unset($df_rutas[$key]['ContratoSAP']);
             }
 
-            // Encabezados de la hoja
-            $document_headers = ['Número de actividad', 'Número de documento'];
+            return $this->tranciti_register_route($df_rutas);
 
-
-
-            $item_headers = ['Número de documento', 'Nombre ítem', 'Código ítem', 'Cantidad planificada', 'Precio unitario'];
-
-            // Convertir la colección en un array y agregar encabezados
-            $df_actividades_array = $df_actividades->toArray();
-            array_unshift($df_actividades_array, $actividades_columns); // Agregar encabezados como primera fila
-
-
-            // Convertir la colección en un array y agregar encabezados
-            $df_viajes_array = $df_viajes->toArray();
-            $viajes_columns = ['Nombre de ruta', 'NumeroDeViaje', 'Destino','Tiempo de trayecto (mins)','Conductor','Vehículo','Dirección','Ciudad','Estado','País','Dirección destino'];
-            array_unshift($df_viajes_array, $viajes_columns); // Agregar encabezados como primera fila
-
-            // Eliminar columnas sobrantes
-            $df_rutas = array_map(function ($row) {
-                unset($row['ID']);
-                unset($row['NCupo']);
-                unset($row['Agricultor']);
-                unset($row['ContratoSAP']);
-                unset($row['Parcela']);
-                return $row;
-            }, $df_rutas);
-
-            // Agregar Encabezados
-            array_unshift($df_rutas, [
-                'Nombre de ruta',
-                'Base de origen',
-                'Fecha de inicio (DD-MM-AAAA)',
-                'Hora de inicio (HH:MM)',
-                'Tiempo de carga (minutos)',
-                'Tiempo de descarga (minutos)',
-            ]);
-
-            // Crear archivo Excel
-            $outputSpreadsheet = new Spreadsheet();
-            $writer = new Xlsx($outputSpreadsheet);
-
-            // Hojas
-            $sheetRutas = $outputSpreadsheet->getActiveSheet();
-            $sheetRutas->setTitle('Rutas');
-            $sheetRutas->fromArray($df_rutas, null, 'A1');
-
-            $outputSpreadsheet->createSheet();
-            $sheetViajes = $outputSpreadsheet->getSheet(1);
-            $sheetViajes->setTitle('Viajes');
-            $sheetViajes->fromArray($df_viajes_array, null, 'A1');
-
-            $sheetActividades = $outputSpreadsheet->createSheet();
-            $sheetActividades->setTitle('Actividades');
-            $sheetActividades->fromArray($df_actividades_array, null, 'A1');
-
-            $sheetDocuments = $outputSpreadsheet->createSheet();
-            $sheetDocuments->setTitle('Documentos');
-            $sheetDocuments->fromArray([$document_headers], null, 'A1');
-
-            $sheetItems = $outputSpreadsheet->createSheet();
-            $sheetItems->setTitle('Items');
-            $sheetItems->fromArray([$item_headers], null, 'A1');
-
-            // Guardar archivo procesado temporalmente en memoria
-            $tempFile = tempnam(sys_get_temp_dir(), 'excel');
-            $writer->save($tempFile);
-
-            // Retornar el archivo como descarga
-            return response()->download($tempFile, 'processed_file.xlsx')->deleteFileAfterSend(true);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function tranciti_validate_spot($codigoContrato)
+    {
+        foreach ($this->getUbicaciones() as $ubicacion) {
+
+            if (substr($ubicacion['name'], 0, 3) == $codigoContrato) {
+                return ['name' => $ubicacion['name'], 'id' => $ubicacion['id']];
+            }
+        }
+        return NULL;
+        //return ['name' => NULL, 'id' => NULL];
+    }
+
+    public function tranciti_validate_spot_transportista($transportista)
+    {
+        foreach ($this->getUbicaciones() as $ubicacion) {
+
+            if ($ubicacion['name'] == $transportista) {
+                return ['name' => $ubicacion['name'], 'id' => $ubicacion['id']];
+            }
+        }
+        return NULL;
+        //return ['name' => NULL, 'id' => NULL];
+    }
+
+    private function tranciti_register_route($df_rutas)
+    {
+        $apiKEY = "Nf6j8C6SkF9FVVorkduYr2ZrweTdPxFi92iW4cCv";
+
+        $token = $this->login();
+
+        $url = 'https://api.waypoint.cl/lastmile/api';
+        $data = $df_rutas;
+
+        try {
+            $response = Http::withHeaders([
+                'id-client' => 2611,
+                'Authorization' => 'Bearer ' . $token["AccessToken"],
+                'Content-Type' => 'application/json',
+                'x-api-key' => $apiKEY,
+            ])->post($url, $data);
+
+            if ($response->successful())
+            {
+                return $response->json();
+            }
+
+            return response()->json([
+                'error' => 'Error en la solicitud',
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ], $response->status());
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Error al realizar la solicitud',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getUbicaciones()
+    {
+        if($this->ubicaciones == NULL)
+        {
+            $token = $this->login();
+
+            $url = 'https://api.waypoint.cl/lastmile/api/spot';
+            $data = [ ];
+
+            try {
+                $response = Http::withHeaders([
+                    'id-client' => 2611,
+                    'Authorization' => 'Bearer ' . $token["AccessToken"],
+                    'Content-Type' => 'application/json',
+                ])->get($url);
+
+                if ($response->successful())
+                {
+                    $response = $response->json();
+                    $this->ubicaciones = $response["data"];
+                    return $this->ubicaciones;
+                }
+
+                return response()->json([
+                    'error' => 'Error en la solicitud',
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ], $response->status());
+            } catch (\Exception $e) {
+                return response()->json([
+                    'error' => 'Error al realizar la solicitud',
+                    'message' => $e->getMessage(),
+                ], 500);
+            }
+
+        } else
+        {
+            return $this->ubicaciones;
+        }
+
+    }
+
+    public function login()
+    {
+        $url = 'https://auth.waypoint.cl/simplelogin/login'; // Cambia esto por tu endpoint
+        $data = [
+            'username' => 'felipemoreno',
+            'password' => 'Sugal123.',
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post($url, $data);
+
+            if ($response->successful())
+            {
+                return $response->json();
+            }
+
+            return response()->json([
+                'error' => 'Error en la solicitud',
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ], $response->status());
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Error al realizar la solicitud',
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
 }
