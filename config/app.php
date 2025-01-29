@@ -27,6 +27,16 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
+    'tranciti' => [
+        'url-login' => env('TRANCITI_API_LOGIN', 'Laravel'),
+        'url' => env('TRANCITI_API_BASE_URL', 'Laravel'),
+        'username' => env('TRANCITI_USERNAME', 'Laravel'),
+        'password' => env('TRANCITI_PASSWORD', 'Laravel'),
+        'api-key' => env('TRANCITI_API_KEY', 'Laravel'),
+        'id-client' => env('TRANCITI_ID_CLIENT', 'Laravel'),
+
+        ]
+        ,
 
     /*
     |--------------------------------------------------------------------------

@@ -131,20 +131,13 @@ class ExcelController extends Controller
                 $i++;
                 $destino =  $this->tranciti_validate_spot($row['ContratoSAP']);
 
-                $df_rutas[$key]['trips'] =
+                $df_rutas[$key]['trips'] =[
                 [
-                [
-                     "name"=> $destino['name'],
-                     "destination"=> [
-                        "id"=> $destino['id'],
-                        "name"=> $destino['name'],
-                    ],
-                    /* "setOperatorDirect"=> [
-                        "idDriver"=> 0,
-                        "idVehicle"=> 0,
-                        "idOperator"=> 0,
-                        "idCargo"=> 0
-                    ], */
+                    "name"=> $destino['name'],
+                    "destination"=> [
+                    "id"=> $destino['id'],
+                    "name"=> $destino['name'],
+                ],
                     "activities" => [
                         [
                             "name" => "Llegada a Parcela",
@@ -200,7 +193,7 @@ class ExcelController extends Controller
                         ],
                     ]
                 ]
-                    ];
+            ];
             }
 
             foreach ($df_rutas as $key => $item) {
@@ -242,19 +235,17 @@ class ExcelController extends Controller
 
     private function tranciti_register_route($df_rutas)
     {
-        $apiKEY = "Nf6j8C6SkF9FVVorkduYr2ZrweTdPxFi92iW4cCv";
-
         $token = $this->login();
 
-        $url = 'https://api.waypoint.cl/lastmile/api';
+        $url = config('app.tranciti.url');
         $data = $df_rutas;
 
         try {
             $response = Http::withHeaders([
-                'id-client' => 2611,
+                'id-client' => config('app.tranciti.id-client'),
                 'Authorization' => 'Bearer ' . $token["AccessToken"],
                 'Content-Type' => 'application/json',
-                'x-api-key' => $apiKEY,
+                'x-api-key' => config('app.tranciti.api-key'),
             ])->post($url, $data);
 
             if ($response->successful())
@@ -281,12 +272,12 @@ class ExcelController extends Controller
         {
             $token = $this->login();
 
-            $url = 'https://api.waypoint.cl/lastmile/api/spot';
+            $url = config('app.tranciti.url') .'/spot';
             $data = [ ];
 
             try {
                 $response = Http::withHeaders([
-                    'id-client' => 2611,
+                    'id-client' => config('app.tranciti.id-client'),
                     'Authorization' => 'Bearer ' . $token["AccessToken"],
                     'Content-Type' => 'application/json',
                 ])->get($url);
@@ -314,15 +305,14 @@ class ExcelController extends Controller
         {
             return $this->ubicaciones;
         }
-
     }
 
     public function login()
     {
-        $url = 'https://auth.waypoint.cl/simplelogin/login'; // Cambia esto por tu endpoint
+        $url = config('app.tranciti.url-login'); // Cambia esto por tu endpoint
         $data = [
-            'username' => 'felipemoreno',
-            'password' => 'Sugal123.',
+            'username' => config('app.tranciti.username'),
+            'password' => config('app.tranciti.password'),
         ];
 
         try {
