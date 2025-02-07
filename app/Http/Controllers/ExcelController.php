@@ -3,12 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use DateTime;
 use Illuminate\Support\Facades\Http;
-use App\Models\Ubicacion;
 
 class ExcelController extends Controller
 {
@@ -25,8 +22,21 @@ class ExcelController extends Controller
             'excel_file' => 'required|file|mimes:xlsx,xls',
         ]);
 
+        if (!$request->hasFile('excel_file')) {
+            return response()->json(['error' => 'No se ha subido ningún archivo.'], 400);
+        }
         $file = $request->file('excel_file');
-        $spreadsheet = IOFactory::load($file->getRealPath());
+        
+        if (!$file->isValid()) {
+            return response()->json(['error' => 'El archivo subido no es válido.'], 400);
+        }
+        
+
+        $file = $request->file('excel_file');
+        $path = $file->getPathname();
+        $spreadsheet = IOFactory::load($path);
+
+
 
         try {
             $sheet = $spreadsheet->getSheetByName('QuoteResume');
@@ -66,8 +76,6 @@ class ExcelController extends Controller
                     $df_program_format->push($newRow);
                 }
             }
-
-            //dd($df_program, $df_program_format);
 
             $df_program_format = $df_program_format->map(function ($row) {
                 $row['Asignar cupo'] = 1;
@@ -123,6 +131,19 @@ class ExcelController extends Controller
                 ];
             })->toArray();
 
+            $transportistas_no_registrados = collect($df_rutas)->whereNull('origin.name')->values()->toArray();
+
+            $transportistas_no_registrados = collect($transportistas_no_registrados)->map(function ($item) {
+                return strtok($item['name'], '-');
+            })->unique()->values()->toArray();
+
+            if (!empty($transportistas_no_registrados)) {
+                return response()->view('welcome-sugal', [
+                    'status' => 'Se encontraron transportistas no registrados:',
+                    'transportistas' => $transportistas_no_registrados
+                ], 200);    
+            }
+
             $df_viajes = collect();
 
             $i = 0;
@@ -131,13 +152,15 @@ class ExcelController extends Controller
                 $i++;
                 $destino =  $this->tranciti_validate_spot($row['ContratoSAP']);
 
-                $df_rutas[$key]['trips'] =[
+                $df_rutas[$key]['trips'] =
                 [
-                    "name"=> $destino['name'],
-                    "destination"=> [
-                    "id"=> $destino['id'],
-                    "name"=> $destino['name'],
-                ],
+                [
+                     "name"=> $destino['name'],
+                     "destination"=> [
+                        "id"=> $destino['id'],
+                        "name"=> $destino['name'],
+                    ],
+
                     "activities" => [
                         [
                             "name" => "Llegada a Parcela",
@@ -193,7 +216,7 @@ class ExcelController extends Controller
                         ],
                     ]
                 ]
-            ];
+                    ];
             }
 
             foreach ($df_rutas as $key => $item) {
@@ -202,7 +225,10 @@ class ExcelController extends Controller
 
             $this->tranciti_register_route($df_rutas);
 
-            return view('welcome-sugal')->with('status', 'Rutas cargadas con exito en tranciti!');
+            return response()->view('welcome-sugal', [
+                'status' => 'Rutas cargadas con exito en tranciti!',
+                'transportistas' => $transportistas_no_registrados
+            ], 200);
 
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -217,35 +243,35 @@ class ExcelController extends Controller
                 return ['name' => $ubicacion['name'], 'id' => $ubicacion['id']];
             }
         }
-        return NULL;
-        //return ['name' => NULL, 'id' => NULL];
+       return ['name' => NULL, 'id' => NULL];
     }
 
     public function tranciti_validate_spot_transportista($transportista)
     {
-        foreach ($this->getUbicaciones() as $ubicacion) {
+        $ubicacion = collect($this->getUbicaciones())->firstWhere('name', $transportista);
 
-            if ($ubicacion['name'] == $transportista) {
-                return ['name' => $ubicacion['name'], 'id' => $ubicacion['id']];
-            }
-        }
-        return NULL;
-        //return ['name' => NULL, 'id' => NULL];
+        if ($ubicacion) {
+            return ['name' => $ubicacion['name'], 'id' => $ubicacion['id']];
+        } else {
+            return ['name' => null, 'id' => null];
+        }        
     }
 
     private function tranciti_register_route($df_rutas)
     {
+        $apiKEY = "Nf6j8C6SkF9FVVorkduYr2ZrweTdPxFi92iW4cCv";
+
         $token = $this->login();
 
-        $url = config('app.tranciti.url');
+        $url = 'https://api.waypoint.cl/lastmile/api';
         $data = $df_rutas;
 
         try {
             $response = Http::withHeaders([
-                'id-client' => config('app.tranciti.id-client'),
+                'id-client' => 2611,
                 'Authorization' => 'Bearer ' . $token["AccessToken"],
                 'Content-Type' => 'application/json',
-                'x-api-key' => config('app.tranciti.api-key'),
+                'x-api-key' => $apiKEY,
             ])->post($url, $data);
 
             if ($response->successful())
@@ -272,12 +298,12 @@ class ExcelController extends Controller
         {
             $token = $this->login();
 
-            $url = config('app.tranciti.url') .'/spot';
+            $url = 'https://api.waypoint.cl/lastmile/api/spot';
             $data = [ ];
 
             try {
                 $response = Http::withHeaders([
-                    'id-client' => config('app.tranciti.id-client'),
+                    'id-client' => 2611,
                     'Authorization' => 'Bearer ' . $token["AccessToken"],
                     'Content-Type' => 'application/json',
                 ])->get($url);
@@ -305,14 +331,15 @@ class ExcelController extends Controller
         {
             return $this->ubicaciones;
         }
+
     }
 
     public function login()
     {
-        $url = config('app.tranciti.url-login'); // Cambia esto por tu endpoint
+        $url = 'https://auth.waypoint.cl/simplelogin/login'; // Cambia esto por tu endpoint
         $data = [
-            'username' => config('app.tranciti.username'),
-            'password' => config('app.tranciti.password'),
+            'username' => 'felipemoreno',
+            'password' => 'Sugal123.',
         ];
 
         try {

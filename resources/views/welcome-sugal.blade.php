@@ -7,20 +7,20 @@
 </head>
 <body>
     <h1>Subir y Procesar Archivo Excel</h1>
-    @if (session('status'))
+    @if (isset($status))
         <div class="alert alert-success" role="alert">
-            {{ session('status') }}
+            <p>{{ $status }}</p>
+            @if (!empty($transportistas))
+                <ul>
+                    @foreach ($transportistas as $item)
+                        <li>{{ $item ?? 'Nombre no disponible' }}</li>
+                    @endforeach
+                </ul>
+            @endif
         </div>
     @endif
-    @if ($errors->any())
-        <div class="alert alert-danger">
-            <ul>
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+
+
     <form action="{{ route('procesar') }}" method="POST" enctype="multipart/form-data">
         @csrf
         <input type="file" name="excel_file" accept=".xlsx,.xls" required>
