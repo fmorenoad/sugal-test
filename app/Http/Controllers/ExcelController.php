@@ -292,8 +292,6 @@ class ExcelController extends Controller
             'x-api-key' => $apiKEY,
         ])->post($url, $data);
 
-        dd($response);
-
         try {
             $response = Http::withHeaders([
                 'id-client' => 2611,
