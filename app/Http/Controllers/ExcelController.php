@@ -61,11 +61,11 @@ class ExcelController extends Controller
             })->filter(function ($row) {
                 return $row['Parcela'] && $row['Proveedor de servicios de cosecha'] && $row['Fábrica'];
             });
+            
+            //dd($df_program);
 
             $df_program_format = collect();
             $j = 0;
-
-
 
             foreach ($df_program as $row) {
                 for ($k = 0; $k < $row['Asignar cupo']; $k++) {
@@ -126,10 +126,13 @@ class ExcelController extends Controller
                         "id" => $transportista['id'],
                     ],
 
-                    "startDate" => $startTime * 1000
+                    "startDate" => $startTime * 1000,
+                    "Fabrica" => $row['Fábrica']
 
                 ];
             })->toArray();
+
+            //dd($df_rutas);
 
             $transportistas_no_registrados = collect($df_rutas)->whereNull('origin.name')->values()->toArray();
 
@@ -151,10 +154,11 @@ class ExcelController extends Controller
             foreach ($df_rutas as $key => $row) {
                 $i++;
                 $destino =  $this->tranciti_validate_spot($row['ContratoSAP']);
+                $planta = $this->tranciti_validate_spot_transportista($row['Fabrica']);
 
                 $df_rutas[$key]['trips'] =
                 [
-                [
+                    [
                      "name"=> $destino['name'],
                      "destination"=> [
                         "id"=> $destino['id'],
@@ -162,19 +166,6 @@ class ExcelController extends Controller
                     ],
 
                     "activities" => [
-                        [
-                            "name" => "Llegada a Parcela",
-                            "type" => "VISIT",
-                            "description" => "Marcar cuando camión ha llegado a parcela.",
-                            "volume" => 0,
-                            "weight" => 0,
-                            "duration" => 120*60,
-                            "customerName" => NULL,
-                            "customerLegalNumber" => NULL,
-                            "customerPhone" => NULL,
-                            "customerEmail" => NULL,
-                            "documents" => [],
-                        ],
                         [
                             "type" => "COLLECTION",
                             "name" => "Camión Cargado",
@@ -187,11 +178,10 @@ class ExcelController extends Controller
                             "customerPhone" => NULL,
                             "customerEmail" => NULL,
                             "documents" => [],
-                        ],
-                        [
-                            "type" => "DELIVERY",
-                            "name" => "Traslado a Planta",
-                            "description" => "Camión ha salido de parcela y esta en transito a Planta",
+                        ],[
+                            "name" => "Llegada a Parcela",
+                            "type" => "VISIT",
+                            "description" => "Marcar cuando camión ha llegado a parcela.",
                             "volume" => 0,
                             "weight" => 0,
                             "duration" => 120*60,
@@ -201,27 +191,56 @@ class ExcelController extends Controller
                             "customerEmail" => NULL,
                             "documents" => [],
                         ],
-                        [
-                            "type" => "DELIVERY",
-                            "name" => "Camión Descargado",
-                            "description" => "Camión fue descargado en Planta",
-                            "volume" => 0,
-                            "weight" => 0,
-                            "duration" => 60*60,
-                            "customerName" => NULL,
-                            "customerLegalNumber" => NULL,
-                            "customerPhone" => NULL,
-                            "customerEmail" => NULL,
-                            "documents" => [],
-                        ],
+                        
                     ]
-                ]
-                    ];
+                    ], // El segundo viajes es crear desde la parcela hasta la planta.
+                    [
+                        "name"=> $planta['name'],
+                        "destination"=> [
+                            "id"=> $planta['id'],
+                            "name"=> $planta['name'],
+                        ],
+    
+                        "activities" => [
+                            [
+                                "type" => "DELIVERY",
+                                "name" => "Camión Descargado",
+                                "description" => "Camión fue descargado en Planta",
+                                "volume" => 0,
+                                "weight" => 0,
+                                "duration" => 60*60,
+                                "customerName" => NULL,
+                                "customerLegalNumber" => NULL,
+                                "customerPhone" => NULL,
+                                "customerEmail" => NULL,
+                                "documents" => [],
+                            ],[
+                                "type" => "DELIVERY",
+                                "name" => "Traslado a Planta",
+                                "description" => "Camión ha salido de parcela y esta en transito a Planta",
+                                "volume" => 0,
+                                "weight" => 0,
+                                "duration" => 120*60,
+                                "customerName" => NULL,
+                                "customerLegalNumber" => NULL,
+                                "customerPhone" => NULL,
+                                "customerEmail" => NULL,
+                                "documents" => [],
+                            ],
+                            
+                        ]
+                    ]
+                ];
             }
 
             foreach ($df_rutas as $key => $item) {
                 unset($df_rutas[$key]['ContratoSAP']);
             }
+
+            //$df_rutas = $df_rutas->first();
+            //$df_rutas[0]['name'] = 'Esta buscamos 2';
+
+            //dd($df_rutas[0]);
 
             $this->tranciti_register_route($df_rutas);
 
@@ -266,16 +285,28 @@ class ExcelController extends Controller
         $url = 'https://api.waypoint.cl/lastmile/api';
         $data = $df_rutas;
 
+        $response = Http::withHeaders([
+            'id-client' => 2611,
+            'Authorization' => 'Bearer ' . $token["AccessToken"],
+            'Content-Type' => 'application/json',
+            'x-api-key' => $apiKEY,
+        ])->post($url, $data);
+
+        dd($response);
+
         try {
             $response = Http::withHeaders([
                 'id-client' => 2611,
                 'Authorization' => 'Bearer ' . $token["AccessToken"],
                 'Content-Type' => 'application/json',
                 'x-api-key' => $apiKEY,
-            ])->post($url, $data);
+            ])->post($url, [$data]);
 
+            dd($response);
+            
             if ($response->successful())
             {
+                dd($response->json());
                 return $response->json();
             }
 
