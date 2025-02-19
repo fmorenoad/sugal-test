@@ -240,15 +240,15 @@ class ExcelController extends Controller
 
     private function tranciti_register_route($df_rutas)
     {
-        $apiKEY = "Nf6j8C6SkF9FVVorkduYr2ZrweTdPxFi92iW4cCv";
+        $apiKEY = config('app.tranciti.api-key');
 
         $token = $this->login();
 
-        $url = 'https://api.waypoint.cl/lastmile/api';
+        $url = config('app.tranciti.url');
         $data = $df_rutas;
 
         $response = Http::withHeaders([
-            'id-client' => 2611,
+            'id-client' => config('app.tranciti.id-client'),
             'Authorization' => 'Bearer ' . $token["AccessToken"],
             'Content-Type' => 'application/json',
             'x-api-key' => $apiKEY,
@@ -256,7 +256,7 @@ class ExcelController extends Controller
 
         try {
             $response = Http::withHeaders([
-                'id-client' => 2611,
+                'id-client' => config('app.tranciti.id-client'),
                 'Authorization' => 'Bearer ' . $token["AccessToken"],
                 'Content-Type' => 'application/json',
                 'x-api-key' => $apiKEY,
@@ -286,12 +286,12 @@ class ExcelController extends Controller
         {
             $token = $this->login();
 
-            $url = 'https://api.waypoint.cl/lastmile/api/spot';
+            $url = config('app.tranciti.url') . '/spot';
             $data = [ ];
 
             try {
                 $response = Http::withHeaders([
-                    'id-client' => 2611,
+                    'id-client' => config('app.tranciti.id-client'),
                     'Authorization' => 'Bearer ' . $token["AccessToken"],
                     'Content-Type' => 'application/json',
                 ])->get($url);
@@ -324,11 +324,10 @@ class ExcelController extends Controller
 
     public function login()
     {
-        $url = 'https://auth.waypoint.cl/simplelogin/login'; // Cambia esto por tu endpoint
-        //$url = config('app.tranciti.url-login');
+        $url = config('app.tranciti.url-login');
         $data = [
-            'username' => 'felipemoreno',
-            'password' => 'Sugal123.',
+            'username' => config('app.tranciti.username'),
+            'password' => config('app.tranciti.password'),
         ];
 
         try {
