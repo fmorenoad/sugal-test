@@ -31,12 +31,9 @@ class ExcelController extends Controller
             return response()->json(['error' => 'El archivo subido no es válido.'], 400);
         }
         
-
         $file = $request->file('excel_file');
         $path = $file->getPathname();
         $spreadsheet = IOFactory::load($path);
-
-
 
         try {
             $sheet = $spreadsheet->getSheetByName('QuoteResume');
@@ -62,8 +59,6 @@ class ExcelController extends Controller
                 return $row['Parcela'] && $row['Proveedor de servicios de cosecha'] && $row['Fábrica'];
             });
             
-            //dd($df_program);
-
             $df_program_format = collect();
             $j = 0;
 
@@ -132,8 +127,6 @@ class ExcelController extends Controller
                 ];
             })->toArray();
 
-            //dd($df_rutas);
-
             $transportistas_no_registrados = collect($df_rutas)->whereNull('origin.name')->values()->toArray();
 
             $transportistas_no_registrados = collect($transportistas_no_registrados)->map(function ($item) {
@@ -178,22 +171,9 @@ class ExcelController extends Controller
                             "customerPhone" => NULL,
                             "customerEmail" => NULL,
                             "documents" => [],
-                        ],[
-                            "name" => "Llegada a Parcela",
-                            "type" => "VISIT",
-                            "description" => "Marcar cuando camión ha llegado a parcela.",
-                            "volume" => 0,
-                            "weight" => 0,
-                            "duration" => 120*60,
-                            "customerName" => NULL,
-                            "customerLegalNumber" => NULL,
-                            "customerPhone" => NULL,
-                            "customerEmail" => NULL,
-                            "documents" => [],
-                        ],
-                        
+                        ],                        
                     ]
-                    ], // El segundo viajes es crear desde la parcela hasta la planta.
+                    ],
                     [
                         "name"=> $planta['name'],
                         "destination"=> [
@@ -214,20 +194,7 @@ class ExcelController extends Controller
                                 "customerPhone" => NULL,
                                 "customerEmail" => NULL,
                                 "documents" => [],
-                            ],[
-                                "type" => "DELIVERY",
-                                "name" => "Traslado a Planta",
-                                "description" => "Camión ha salido de parcela y esta en transito a Planta",
-                                "volume" => 0,
-                                "weight" => 0,
-                                "duration" => 120*60,
-                                "customerName" => NULL,
-                                "customerLegalNumber" => NULL,
-                                "customerPhone" => NULL,
-                                "customerEmail" => NULL,
-                                "documents" => [],
                             ],
-                            
                         ]
                     ]
                 ];
@@ -236,11 +203,6 @@ class ExcelController extends Controller
             foreach ($df_rutas as $key => $item) {
                 unset($df_rutas[$key]['ContratoSAP']);
             }
-
-            //$df_rutas = $df_rutas->first();
-            //$df_rutas[0]['name'] = 'Esta buscamos 2';
-
-            //dd($df_rutas[0]);
 
             $this->tranciti_register_route($df_rutas);
 
@@ -299,12 +261,9 @@ class ExcelController extends Controller
                 'Content-Type' => 'application/json',
                 'x-api-key' => $apiKEY,
             ])->post($url, [$data]);
-
-            dd($response);
             
             if ($response->successful())
             {
-                dd($response->json());
                 return $response->json();
             }
 
@@ -366,6 +325,7 @@ class ExcelController extends Controller
     public function login()
     {
         $url = 'https://auth.waypoint.cl/simplelogin/login'; // Cambia esto por tu endpoint
+        //$url = config('app.tranciti.url-login');
         $data = [
             'username' => 'felipemoreno',
             'password' => 'Sugal123.',
