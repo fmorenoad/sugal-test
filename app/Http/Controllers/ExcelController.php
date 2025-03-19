@@ -238,8 +238,6 @@ class ExcelController extends Controller
                 unset($df_rutas[$key]['EmpresaTransporte']);
             }
 
-            dd($df_rutas);
-
             $this->tranciti_register_route($df_rutas);
 
             return response()->view('welcome-sugal', [
