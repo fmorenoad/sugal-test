@@ -121,8 +121,8 @@ class ExcelController extends Controller
                         "id" => $transportista['id'],
                     ],
 
-                    "startDate" => $startTime * 1000,
-                    "Fabrica" => $row['Fábrica']
+                    "startDate" => $startTime * 1000
+
                 ];
             })->toArray();
             
@@ -170,10 +170,11 @@ class ExcelController extends Controller
                             "customerPhone" => NULL,
                             "customerEmail" => NULL,
                             "documents" => [],
-                        ],[
-                            "name" => "Llegada a Parcela",
-                            "type" => "VISIT",
-                            "description" => "Marcar cuando camión ha llegado a parcela.",
+                        ],
+                        [
+                            "type" => "DELIVERY",
+                            "name" => "Traslado a Planta",
+                            "description" => "Camión ha salido de parcela y esta en transito a Planta",
                             "volume" => 0,
                             "weight" => 0,
                             "duration" => 120*60,
@@ -183,45 +184,22 @@ class ExcelController extends Controller
                             "customerEmail" => NULL,
                             "documents" => [],
                         ],
-                    ]
-                    ],
-                    [
-                        "name"=> $planta['name'],
-                        "destination"=> [
-                            "id"=> $planta['id'],
-                            "name"=> $planta['name'],
+                        [
+                            "type" => "DELIVERY",
+                            "name" => "Camión Descargado",
+                            "description" => "Camión fue descargado en Planta",
+                            "volume" => 0,
+                            "weight" => 0,
+                            "duration" => 60*60,
+                            "customerName" => NULL,
+                            "customerLegalNumber" => NULL,
+                            "customerPhone" => NULL,
+                            "customerEmail" => NULL,
+                            "documents" => [],
                         ],
-
-                        "activities" => [
-                            [
-                                "type" => "DELIVERY",
-                                "name" => "Camión Descargado",
-                                "description" => "Camión fue descargado en Planta",
-                                "volume" => 0,
-                                "weight" => 0,
-                                "duration" => 60*60,
-                                "customerName" => NULL,
-                                "customerLegalNumber" => NULL,
-                                "customerPhone" => NULL,
-                                "customerEmail" => NULL,
-                                "documents" => [],
-                            ],[
-                                "type" => "DELIVERY",
-                                "name" => "Traslado a Planta",
-                                "description" => "Camión ha salido de parcela y esta en transito a Planta",
-                                "volume" => 0,
-                                "weight" => 0,
-                                "duration" => 120*60,
-                                "customerName" => NULL,
-                                "customerLegalNumber" => NULL,
-                                "customerPhone" => NULL,
-                                "customerEmail" => NULL,
-                                "documents" => [],
-                            ],
-
-                        ]
                     ]
-                ];
+                ]
+                    ];
             }
 
             foreach ($df_rutas as $key => $item) {
@@ -264,21 +242,28 @@ class ExcelController extends Controller
 
     private function tranciti_register_route($df_rutas)
     {
-        $apiKEY = "Nf6j8C6SkF9FVVorkduYr2ZrweTdPxFi92iW4cCv";
+        $apiKEY = config('app.tranciti.api-key');
 
         $token = $this->login();
 
-        $url = 'https://api.waypoint.cl/lastmile/api';
+        $url = config('app.tranciti.url');
         $data = $df_rutas;
+
+        $response = Http::withHeaders([
+            'id-client' => config('app.tranciti.id-client'),
+            'Authorization' => 'Bearer ' . $token["AccessToken"],
+            'Content-Type' => 'application/json',
+            'x-api-key' => $apiKEY,
+        ])->post($url, $data);
 
         try {
             $response = Http::withHeaders([
-                'id-client' => 2611,
+                'id-client' => config('app.tranciti.id-client'),
                 'Authorization' => 'Bearer ' . $token["AccessToken"],
                 'Content-Type' => 'application/json',
                 'x-api-key' => $apiKEY,
-            ])->post($url, $data);
-
+            ])->post($url, [$data]);
+            
             if ($response->successful())
             {
                 return $response->json();
@@ -303,12 +288,12 @@ class ExcelController extends Controller
         {
             $token = $this->login();
 
-            $url = 'https://api.waypoint.cl/lastmile/api/spot';
+            $url = config('app.tranciti.url') . '/spot';
             $data = [ ];
 
             try {
                 $response = Http::withHeaders([
-                    'id-client' => 2611,
+                    'id-client' => config('app.tranciti.id-client'),
                     'Authorization' => 'Bearer ' . $token["AccessToken"],
                     'Content-Type' => 'application/json',
                 ])->get($url);
@@ -341,10 +326,10 @@ class ExcelController extends Controller
 
     public function login()
     {
-        $url = 'https://auth.waypoint.cl/simplelogin/login';
+        $url = 'https://auth.waypoint.cl/simplelogin/login'; // Cambia esto por tu endpoint
         $data = [
-            'username' => 'felipemoreno',
-            'password' => 'Sugal123.',
+            'username' => config('app.tranciti.username'),
+            'password' => config('app.tranciti.password'),
         ];
 
         try {
