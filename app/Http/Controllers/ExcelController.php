@@ -31,12 +31,9 @@ class ExcelController extends Controller
             return response()->json(['error' => 'El archivo subido no es válido.'], 400);
         }
         
-
         $file = $request->file('excel_file');
         $path = $file->getPathname();
         $spreadsheet = IOFactory::load($path);
-
-
 
         try {
             $sheet = $spreadsheet->getSheetByName('QuoteResume');
@@ -61,11 +58,9 @@ class ExcelController extends Controller
             })->filter(function ($row) {
                 return $row['Parcela'] && $row['Proveedor de servicios de cosecha'] && $row['Fábrica'];
             });
-
+            
             $df_program_format = collect();
             $j = 0;
-
-
 
             foreach ($df_program as $row) {
                 for ($k = 0; $k < $row['Asignar cupo']; $k++) {
@@ -117,7 +112,7 @@ class ExcelController extends Controller
 
                 return [
                     "ContratoSAP" => $row['Contrato SAP'],
-                    "name" => "{$row['Prestador servicio de Transporte']}-{$row['Maquina cosechadora']}-{$row['Fábrica']}-{$row['NCupo']}",
+                    "name" => "{$row['Parcela']}-{$row['Maquina cosechadora']}-{$row['Fábrica']}-{$row['NCupo']}",
                     "loadTime" => 60*60,
                     "unloadTime" => 10*60,
 
@@ -126,11 +121,11 @@ class ExcelController extends Controller
                         "id" => $transportista['id'],
                     ],
 
-                    "startDate" => $startTime * 1000
-
+                    "startDate" => $startTime * 1000,
+                    "Fabrica" => $row['Fábrica']
                 ];
             })->toArray();
-
+            
             $transportistas_no_registrados = collect($df_rutas)->whereNull('origin.name')->values()->toArray();
 
             $transportistas_no_registrados = collect($transportistas_no_registrados)->map(function ($item) {
@@ -151,10 +146,11 @@ class ExcelController extends Controller
             foreach ($df_rutas as $key => $row) {
                 $i++;
                 $destino =  $this->tranciti_validate_spot($row['ContratoSAP']);
+                $planta = $this->tranciti_validate_spot_transportista($row['Fabrica']);
 
                 $df_rutas[$key]['trips'] =
                 [
-                [
+                    [
                      "name"=> $destino['name'],
                      "destination"=> [
                         "id"=> $destino['id'],
@@ -162,19 +158,6 @@ class ExcelController extends Controller
                     ],
 
                     "activities" => [
-                        [
-                            "name" => "Llegada a Parcela",
-                            "type" => "VISIT",
-                            "description" => "Marcar cuando camión ha llegado a parcela.",
-                            "volume" => 0,
-                            "weight" => 0,
-                            "duration" => 120*60,
-                            "customerName" => NULL,
-                            "customerLegalNumber" => NULL,
-                            "customerPhone" => NULL,
-                            "customerEmail" => NULL,
-                            "documents" => [],
-                        ],
                         [
                             "type" => "COLLECTION",
                             "name" => "Camión Cargado",
@@ -187,11 +170,10 @@ class ExcelController extends Controller
                             "customerPhone" => NULL,
                             "customerEmail" => NULL,
                             "documents" => [],
-                        ],
-                        [
-                            "type" => "DELIVERY",
-                            "name" => "Traslado a Planta",
-                            "description" => "Camión ha salido de parcela y esta en transito a Planta",
+                        ],[
+                            "name" => "Llegada a Parcela",
+                            "type" => "VISIT",
+                            "description" => "Marcar cuando camión ha llegado a parcela.",
                             "volume" => 0,
                             "weight" => 0,
                             "duration" => 120*60,
@@ -201,22 +183,45 @@ class ExcelController extends Controller
                             "customerEmail" => NULL,
                             "documents" => [],
                         ],
-                        [
-                            "type" => "DELIVERY",
-                            "name" => "Camión Descargado",
-                            "description" => "Camión fue descargado en Planta",
-                            "volume" => 0,
-                            "weight" => 0,
-                            "duration" => 60*60,
-                            "customerName" => NULL,
-                            "customerLegalNumber" => NULL,
-                            "customerPhone" => NULL,
-                            "customerEmail" => NULL,
-                            "documents" => [],
-                        ],
                     ]
-                ]
-                    ];
+                    ],
+                    [
+                        "name"=> $planta['name'],
+                        "destination"=> [
+                            "id"=> $planta['id'],
+                            "name"=> $planta['name'],
+                        ],
+
+                        "activities" => [
+                            [
+                                "type" => "DELIVERY",
+                                "name" => "Camión Descargado",
+                                "description" => "Camión fue descargado en Planta",
+                                "volume" => 0,
+                                "weight" => 0,
+                                "duration" => 60*60,
+                                "customerName" => NULL,
+                                "customerLegalNumber" => NULL,
+                                "customerPhone" => NULL,
+                                "customerEmail" => NULL,
+                                "documents" => [],
+                            ],[
+                                "type" => "DELIVERY",
+                                "name" => "Traslado a Planta",
+                                "description" => "Camión ha salido de parcela y esta en transito a Planta",
+                                "volume" => 0,
+                                "weight" => 0,
+                                "duration" => 120*60,
+                                "customerName" => NULL,
+                                "customerLegalNumber" => NULL,
+                                "customerPhone" => NULL,
+                                "customerEmail" => NULL,
+                                "documents" => [],
+                            ],
+
+                        ]
+                    ]
+                ];
             }
 
             foreach ($df_rutas as $key => $item) {
@@ -336,7 +341,7 @@ class ExcelController extends Controller
 
     public function login()
     {
-        $url = 'https://auth.waypoint.cl/simplelogin/login'; // Cambia esto por tu endpoint
+        $url = 'https://auth.waypoint.cl/simplelogin/login';
         $data = [
             'username' => 'felipemoreno',
             'password' => 'Sugal123.',
