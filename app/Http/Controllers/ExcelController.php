@@ -121,7 +121,10 @@ class ExcelController extends Controller
                         "id" => $transportista['id'],
                     ],
 
-                    "startDate" => $startTime * 1000
+                    "startDate" => $startTime * 1000,
+
+                    "EmpresaTransporte" => $row['Prestador servicio de Transporte'],
+                    "Fabrica" => $row['Fábrica'],
 
                 ];
             })->toArray();
@@ -129,7 +132,7 @@ class ExcelController extends Controller
             $transportistas_no_registrados = collect($df_rutas)->whereNull('origin.name')->values()->toArray();
 
             $transportistas_no_registrados = collect($transportistas_no_registrados)->map(function ($item) {
-                return strtok($item['name'], '-');
+                return strtok($item['EmpresaTransporte'], '-');
             })->unique()->values()->toArray();
 
             if (!empty($transportistas_no_registrados)) {
@@ -151,60 +154,91 @@ class ExcelController extends Controller
                 $df_rutas[$key]['trips'] =
                 [
                     [
-                     "name"=> $destino['name'],
-                     "destination"=> [
-                        "id"=> $destino['id'],
                         "name"=> $destino['name'],
-                    ],
+                        "destination"=> 
+                            [
+                            "id"=> $destino['id'],
+                            "name"=> $destino['name'],
+                            ],
 
-                    "activities" => [
-                        [
-                            "type" => "COLLECTION",
-                            "name" => "Camión Cargado",
-                            "description" => "Camión ya esta con carga y se prepara para salir de parcela",
-                            "volume" => 0,
-                            "weight" => 0,
-                            "duration" => 60*60,
-                            "customerName" => NULL,
-                            "customerLegalNumber" => NULL,
-                            "customerPhone" => NULL,
-                            "customerEmail" => NULL,
-                            "documents" => [],
+                        "activities" => [
+                            [
+                                "type" => "COLLECTION",
+                                "name" => "Camión Cargado",
+                                "description" => "Camión ya esta con carga y se prepara para salir de parcela",
+                                "volume" => 0,
+                                "weight" => 0,
+                                "duration" => 60*60,
+                                "customerName" => NULL,
+                                "customerLegalNumber" => NULL,
+                                "customerPhone" => NULL,
+                                "customerEmail" => NULL,
+                                "documents" => [],
+                            ],
+                            [
+                                "type" => "DELIVERY",
+                                "name" => "Llegada a Parcela",
+                                "description" => "Camión ha llegado a parcela",
+                                "volume" => 0,
+                                "weight" => 0,
+                                "duration" => 120*60,
+                                "customerName" => NULL,
+                                "customerLegalNumber" => NULL,
+                                "customerPhone" => NULL,
+                                "customerEmail" => NULL,
+                                "documents" => [],
+                            ]
                         ],
-                        [
-                            "type" => "DELIVERY",
-                            "name" => "Traslado a Planta",
-                            "description" => "Camión ha salido de parcela y esta en transito a Planta",
-                            "volume" => 0,
-                            "weight" => 0,
-                            "duration" => 120*60,
-                            "customerName" => NULL,
-                            "customerLegalNumber" => NULL,
-                            "customerPhone" => NULL,
-                            "customerEmail" => NULL,
-                            "documents" => [],
-                        ],
-                        [
-                            "type" => "DELIVERY",
-                            "name" => "Camión Descargado",
-                            "description" => "Camión fue descargado en Planta",
-                            "volume" => 0,
-                            "weight" => 0,
-                            "duration" => 60*60,
-                            "customerName" => NULL,
-                            "customerLegalNumber" => NULL,
-                            "customerPhone" => NULL,
-                            "customerEmail" => NULL,
-                            "documents" => [],
-                        ],
+
+                        
+                    ], 
+                    [
+                        "name"=> $planta['name'],
+                        "destination"=> 
+                            [
+                            "id"=> $planta['id'],
+                            "name"=> $planta['name'],
+                            ],
+
+                        "activities" => [
+                            [
+                                "type" => "DELIVERY",
+                                "name" => "Camión Descargado",
+                                "description" => "Camión fue descargado en Planta",
+                                "volume" => 0,
+                                "weight" => 0,
+                                "duration" => 60*60,
+                                "customerName" => NULL,
+                                "customerLegalNumber" => NULL,
+                                "customerPhone" => NULL,
+                                "customerEmail" => NULL,
+                                "documents" => [],
+                            ],
+                            [
+                                "type" => "DELIVERY",
+                                "name" => "Traslado a Planta",
+                                "description" => "Camión ha salido de parcela y esta en transito a Planta",
+                                "volume" => 0,
+                                "weight" => 0,
+                                "duration" => 120*60,
+                                "customerName" => NULL,
+                                "customerLegalNumber" => NULL,
+                                "customerPhone" => NULL,
+                                "customerEmail" => NULL,
+                                "documents" => [],
+                            ]
+                        ]
                     ]
-                ]
-                    ];
+                ];
             }
 
             foreach ($df_rutas as $key => $item) {
                 unset($df_rutas[$key]['ContratoSAP']);
+                unset($df_rutas[$key]['Fabrica']);
+                unset($df_rutas[$key]['EmpresaTransporte']);
             }
+
+            dd($df_rutas);
 
             $this->tranciti_register_route($df_rutas);
 
