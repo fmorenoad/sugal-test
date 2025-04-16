@@ -174,23 +174,8 @@ class ExcelController extends Controller
                                 "customerPhone" => NULL,
                                 "customerEmail" => NULL,
                                 "documents" => [],
-                            ],
-                            [
-                                "type" => "DELIVERY",
-                                "name" => "Llegada a Parcela",
-                                "description" => "Camión ha llegado a parcela",
-                                "volume" => 0,
-                                "weight" => 0,
-                                "duration" => 120*60,
-                                "customerName" => NULL,
-                                "customerLegalNumber" => NULL,
-                                "customerPhone" => NULL,
-                                "customerEmail" => NULL,
-                                "documents" => [],
                             ]
                         ],
-
-                        
                     ], 
                     [
                         "name"=> $planta['name'],
@@ -208,19 +193,6 @@ class ExcelController extends Controller
                                 "volume" => 0,
                                 "weight" => 0,
                                 "duration" => 60*60,
-                                "customerName" => NULL,
-                                "customerLegalNumber" => NULL,
-                                "customerPhone" => NULL,
-                                "customerEmail" => NULL,
-                                "documents" => [],
-                            ],
-                            [
-                                "type" => "DELIVERY",
-                                "name" => "Traslado a Planta",
-                                "description" => "Camión ha salido de parcela y esta en transito a Planta",
-                                "volume" => 0,
-                                "weight" => 0,
-                                "duration" => 120*60,
                                 "customerName" => NULL,
                                 "customerLegalNumber" => NULL,
                                 "customerPhone" => NULL,
