@@ -98,7 +98,8 @@ class ExcelController extends Controller
                 } else {
                     // Incrementar una hora desde la última hora registrada
                     $horaActual = DateTime::createFromFormat('H:i', $parcelaHorarios[$parcela]['last_time']);
-                    $horaInicio = $horaActual->modify('+1 hour')->format('H:i');
+                    //$horaInicio = $horaActual->modify('+1 hour')->format('H:i');
+                    $horaInicio = $horaActual->modify('+15 minutes')->format('H:i');
                 }
 
                 // Actualizar la última hora registrada para la parcela
@@ -113,8 +114,8 @@ class ExcelController extends Controller
                 return [
                     "ContratoSAP" => $row['Contrato SAP'],
                     "name" => "{$row['Parcela']}-{$row['Maquina cosechadora']}-{$row['Fábrica']}-{$row['NCupo']}",
-                    "loadTime" => 60*60,
-                    "unloadTime" => 10*60,
+                    "loadTime" => 15*60,
+                    "unloadTime" => 15*60,
 
                     "origin" => [
                         "name" => $transportista['name'],
@@ -168,7 +169,7 @@ class ExcelController extends Controller
                                 "description" => "Camión ya esta con carga y se prepara para salir de parcela",
                                 "volume" => 0,
                                 "weight" => 0,
-                                "duration" => 60*60,
+                                "duration" => 15*60,
                                 "customerName" => NULL,
                                 "customerLegalNumber" => NULL,
                                 "customerPhone" => NULL,
@@ -192,7 +193,7 @@ class ExcelController extends Controller
                                 "description" => "Camión fue descargado en Planta",
                                 "volume" => 0,
                                 "weight" => 0,
-                                "duration" => 60*60,
+                                "duration" => 15*60,
                                 "customerName" => NULL,
                                 "customerLegalNumber" => NULL,
                                 "customerPhone" => NULL,
