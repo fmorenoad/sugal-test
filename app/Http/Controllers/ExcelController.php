@@ -10,6 +10,15 @@ use Illuminate\Support\Facades\Http;
 class ExcelController extends Controller
 {
     public $ubicaciones = NULL;
+    private $horarios = [
+        1 => '08:00',
+        2 => '15:00',
+        3 => '20:00',
+        4 => '10:00',
+        5 => '22:00',
+        6 => '07:00',
+        7 => '19:00',
+    ];
 
     public function index()
     {
@@ -79,32 +88,30 @@ class ExcelController extends Controller
 
             $parcelaHorarios = []; // Para almacenar el último horario de cada parcela
             $df_rutas = $df_program_format->map(function ($row) use (&$parcelaHorarios) {
-                $parcela = $row['Parcela'];
 
-                // Si la parcela no existe en el registro, inicializar con 07:00
+                $parcela = $row['Parcela'];
+                $turno = $this->obtenerTurno($row["Turno"]);
+                $horario_inicial_turno = $this->horarios[$turno] ?? null;
                 if (!isset($parcelaHorarios[$parcela])) {
+
                     $parcelaHorarios[$parcela] = [
                         'count' => 0, // Contador de apariciones
-                        'last_time' => '07:00', // Última hora registrada
+                        'last_time' => $horario_inicial_turno, // Última hora registrada
                     ];
                 }
-
                 // Incrementar el contador de apariciones
                 $parcelaHorarios[$parcela]['count']++;
 
                 // Determinar la hora de inicio
                 if ($parcelaHorarios[$parcela]['count'] <= 2) {
-                    $horaInicio = '07:00'; // Primera y segunda aparición
+                    $horaInicio = $horario_inicial_turno; // Primera y segunda aparición
                 } else {
-                    // Incrementar una hora desde la última hora registrada
                     $horaActual = DateTime::createFromFormat('H:i', $parcelaHorarios[$parcela]['last_time']);
-                    //$horaInicio = $horaActual->modify('+1 hour')->format('H:i');
                     $horaInicio = $horaActual->modify('+15 minutes')->format('H:i');
                 }
 
                 // Actualizar la última hora registrada para la parcela
                 $parcelaHorarios[$parcela]['last_time'] = $horaInicio;
-
                 $startTime = DateTime::createFromFormat('d-m-Y', $row['Fecha']);
                 $startTime->modify($horaInicio);
                 $startTime = $startTime->getTimestamp();
@@ -116,17 +123,14 @@ class ExcelController extends Controller
                     "name" => "{$row['Parcela']}-{$row['Maquina cosechadora']}-{$row['Fábrica']}-{$row['NCupo']}",
                     "loadTime" => 15*60,
                     "unloadTime" => 15*60,
-
                     "origin" => [
                         "name" => $transportista['name'],
                         "id" => $transportista['id'],
                     ],
-
                     "startDate" => $startTime * 1000,
-
                     "EmpresaTransporte" => $row['Prestador servicio de Transporte'],
                     "Fabrica" => $row['Fábrica'],
-
+                    //"FechaInicioHumana" => date('d/m/Y H:i:s', $startTime),
                 ];
             })->toArray();
             
@@ -211,6 +215,8 @@ class ExcelController extends Controller
                 unset($df_rutas[$key]['EmpresaTransporte']);
             }
 
+            //dd($df_rutas);
+
             $this->tranciti_register_route($df_rutas);
 
             return response()->view('welcome-sugal', [
@@ -243,6 +249,14 @@ class ExcelController extends Controller
         } else {
             return ['name' => null, 'id' => null];
         }        
+    }
+
+    private function obtenerTurno(string $turno): ?int
+    {
+        if (preg_match('/\d+/', $turno, $coincidencias)) {
+            return (int) $coincidencias[0];
+        }
+        return null;
     }
 
     private function tranciti_register_route($df_rutas)
