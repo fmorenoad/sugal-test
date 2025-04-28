@@ -121,8 +121,8 @@ class ExcelController extends Controller
                 return [
                     "ContratoSAP" => $row['Contrato SAP'],
                     "name" => "{$row['Parcela']}-{$row['Maquina cosechadora']}-{$row['Fábrica']}-{$row['NCupo']}",
-                    "loadTime" => 15*60,
-                    "unloadTime" => 15*60,
+                    "loadTime" => 0,
+                    "unloadTime" => 0,
                     "origin" => [
                         "name" => $transportista['name'],
                         "id" => $transportista['id'],
@@ -130,7 +130,6 @@ class ExcelController extends Controller
                     "startDate" => $startTime * 1000,
                     "EmpresaTransporte" => $row['Prestador servicio de Transporte'],
                     "Fabrica" => $row['Fábrica'],
-                    //"FechaInicioHumana" => date('d/m/Y H:i:s', $startTime),
                 ];
             })->toArray();
             
